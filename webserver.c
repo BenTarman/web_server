@@ -52,7 +52,7 @@ void start_webserver()
 		exit(-1);
 	}
 
-	int port = atoi("6001");
+	int port = atoi("6002");
 
 	memset(&server, 0, sizeof(struct sockaddr_in));
 	server.sin_family = PF_INET;
