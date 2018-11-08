@@ -1,3 +1,21 @@
+<html>
+
+<script type="text/javascript" src="http://jqueryjs.googlecode.com/files/jquery-1.3.2.min.js"></script>
+
 <form action="" method="post">
-	<input type="submit" name="upvote" value="Upvote" />
+	<input type="button" value="show image" onclick="showImage();" />
 </form>
+
+
+<img id="loadingImage" src="https://i.4cdn.org/g/1541631593780.gif" style="visibility:hidden"/>
+
+<script type="text/javascript">
+
+function showImage(){
+	document.getElementById('loadingImage').style.visibility='visible';
+}
+
+</script>
+
+
+</html>
