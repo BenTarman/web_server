@@ -172,6 +172,12 @@ void respond_to_client(int connfd)
 						sprintf(content_type, "Content-Type: image/jpeg\n\n");
 						type_length = 26;
 					}
+					else if (strcmp(file_type, "png") == 0 )
+					{
+						debug(KBLUE "requesting png" KRESET "\n");
+						sprintf(content_type, "Content-Type: image/png\n\n");
+						type_length = 25;
+					}
 	
 					debug(KBLUE "writing to webpage" KRESET "\n");
 					// write http request here
