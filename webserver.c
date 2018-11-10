@@ -8,6 +8,8 @@
 #include <stdarg.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
+#include <getopt.h>
 
 #define KRED   "\x1b[31m"
 #define KYEL   "\x1b[33m"
@@ -19,7 +21,7 @@
 
 static volatile int keepRunning = 1;
 	
-int isVerbose = 1; //global variable for  verbose mode
+int isVerbose = 0; //global variable for  verbose mode
 
 int lfd = -1;
 
@@ -38,6 +40,7 @@ void debug(char* format, ...)
 void closeHandler(int whocares) {
 	debug(KRED "Closing server" KRESET "\n");
 	keepRunning = 0;
+	close(lfd);
 	exit(0);
 }
 
@@ -51,8 +54,11 @@ void start_webserver()
 		debug( KRED "Failed to create listening socket" KRESET "\n");
 		exit(-1);
 	}
+	
+	// assign random port number
+	srand (time(NULL));
+	int port = (rand() % (10000 - 1 + 1)) + 1000; 
 
-	int port = atoi("6002");
 
 	memset(&server, 0, sizeof(struct sockaddr_in));
 	server.sin_family = PF_INET;
@@ -66,13 +72,12 @@ void start_webserver()
 		debug(KRED "bind socket failed %s" KRESET "\n", strerror(errno));
 	}
 
-	debug(KGREEN "listening on port %d" KRESET "\n", port);
+	printf(KGREEN "listening on port %d" KRESET "\n\n\n", port);
 	
 	if (listen(lfd, 10000) == -1) 
 	{
 		debug( KRED "listen failed %s" KRESET "\n", strerror(errno));
 	}
-
 
 }
 
@@ -88,8 +93,9 @@ void respond_to_client(int connfd)
 
 	char* path = getenv("PWD");
 
-	printf("file: %s\n", path);
 
+	printf("START OF HEADER\n");
+	printf("================\n");
 	memset( (void*)buffer, (int)'\0', 99999 );
 	if ((read_size = recv(connfd, buffer, 99999, 0)) > 0)
 	{
@@ -102,7 +108,7 @@ void respond_to_client(int connfd)
 
 
 		char* pos = strstr(file_to_serve, "."); //IP: the original string
-		char fileName[40];
+		char fileName[40] = {0};
 		memcpy(fileName, file_to_serve, pos - file_to_serve);
 	
 		if ((strcmp(fileName, "/favicon") != 0) &&
@@ -110,6 +116,7 @@ void respond_to_client(int connfd)
 		{
 				write(connfd, "HTTP/1.0 404 Not Found\nContent-Length: 136\nConnection: close\nContent-Type: text/html\n\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\nThe requested URL was not found on this server.\n</body></html>\n",224);
 		}
+
 
 		strcat(path, file_to_serve);
 
@@ -119,22 +126,68 @@ void respond_to_client(int connfd)
 				write(connfd, "HTTP/1.0 400 Bad Request\n", 25);
 		}
 
-		if (strcmp(req_type, "GET") == 0)
+		if (strcmp(req_type, "GET") == 0 && strcmp(fileName, "/favicon") != 0)
 		{
-			int fd = open(path, O_RDONLY);
 
-			if (fd == -1)
-			{
-				write(connfd, "HTTP/1.0 404 Not Found\nContent-Length: 136\nConnection: close\nContent-Type: text/html\n\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\nThe requested URL was not found on this server.\n</body></html>\n",224);
-			}
-			else
-			{
-				write(connfd, "HTTP/1.0 200 OK\n\n", 17);
-				while ((bytes_read = read(fd, data, 512))>0 )
+				//write(connfd, "HTTP/1.0 200 OK\nServer: isengard\nContent-Type: text/html\n\n", 48);
+			
+				int count = 0;
+				int fd = open(path, O_RDONLY);
+				if (fd == -1)
 				{
-					write (connfd, data, bytes_read);
+				write(connfd, "HTTP/1.0 404 Not Found\nContent-Length: 136\nConnection: close\nContent-Type: text/html\n\n<html><head>\n<title>404 Not Found</title>\n</head><body>\n<h1>Not Found</h1>\nThe requested URL was not found on this server.\n</body></html>\n",224);
+					debug(KRED "file doesn't exist or bugged" KRESET "\n");
 				}
-			}
+				else
+				{
+					int count = 0;
+
+					int fd_temp = open(path, O_RDONLY);
+					while ((bytes_read = read(fd_temp, data, 512)) > 0) 
+						count += bytes_read;
+					close(fd_temp);
+				
+					
+					// form http request	
+					// =================
+					char content_length[24];
+					sprintf(content_length, "Content-Length: %d\n", count);
+
+					//get file type
+					char content_type[32];
+					char *file_type = strrchr(file_to_serve, '.') + 1;
+					size_t type_length = 0;
+
+					if (strcmp(file_type, "gif") == 0)
+					{
+						sprintf(content_type, "Content-Type: image/gif\n\n");
+						type_length = 25;
+					}
+					else if (strcmp(file_type, "html") == 0)
+					{
+						sprintf(content_type, "Content-Type: text/html\n\n");
+						type_length = 25;
+					}
+					else if (strcmp(file_type, "jpg") == 0 )
+					{
+						sprintf(content_type, "Content-Type: image/jpeg\n\n");
+						type_length = 26;
+					}
+
+
+	
+					// write http request here
+					// =======================
+					write(connfd, "HTTP/1.0 200 OK\n", 16);
+					write(connfd, content_length, 34);
+					write(connfd, content_type, type_length);
+
+					while ((bytes_read = read(fd, data, 512)) > 0 )
+					{
+						write(connfd, data, bytes_read);
+					}
+					close(fd);
+				}
 		}
 		else
 		{
@@ -143,6 +196,8 @@ void respond_to_client(int connfd)
 		}
 	}
 
+	printf("END OF HEADER\n");
+	printf("================\n\n\n");
 	shutdown (connfd, SHUT_RDWR);
 	close(connfd);
 
@@ -165,6 +220,7 @@ void connect_webserver()
 			exit(-1);
 		}
 
+		debug( KGREEN "socket accepted" KRESET "\n");
 		if (fork() == 0)
 		{
 			respond_to_client(connfd);
@@ -180,7 +236,23 @@ void connect_webserver()
 
 int main(int argc, char** argv)
 {
+	int opt = 0;
+	// check if verbose mode enabled
+  while ((opt = getopt(argc,argv,"v")) != -1) {
+    switch (opt) {
+    case 'v':
+			isVerbose = 1;
+      break;
+    case ':':
+    case '?':
+    default:
+			debug("usage: %s -v\n", argv[0]);
+      exit(-1);
+    }
+  }
 
+
+	debug(KYEL "Setting up signal handlers" KRESET "\n\n\n");
 	signal(SIGINT, closeHandler);
 
 	//connection->sockfd = -1;
@@ -188,10 +260,6 @@ int main(int argc, char** argv)
 	start_webserver();
 
 	connect_webserver();
-
-
-	close(lfd);
-
 
 	return 0;
 }
