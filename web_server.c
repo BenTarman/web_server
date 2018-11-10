@@ -99,14 +99,13 @@ void respond_to_client(int connfd)
 	memset( (void*)buffer, (int)'\0', 99999 );
 	if ((read_size = recv(connfd, buffer, 99999, 0)) > 0)
 	{
+		debug(KGREEN "buffer size %d" KRESET "\n", strlen(buffer));
 		printf("%s\n", buffer);
 		char *req = strtok(buffer, "\n");
 		char *req_type = malloc(6);
 		char *file_to_serve = malloc(40);
 		char *protocol_version = malloc(10);
 		sscanf(req, "%s%s%s", req_type, file_to_serve, protocol_version);
-
-
 		char* pos = strstr(file_to_serve, "."); //IP: the original string
 		char fileName[40] = {0};
 		memcpy(fileName, file_to_serve, pos - file_to_serve);
@@ -123,14 +122,12 @@ void respond_to_client(int connfd)
 		if (strcmp(protocol_version, "HTTP/1.0") != 0 &&
 				strcmp(protocol_version, "HTTP/1.1") != 0)
 		{
+				debug(KRED "invalid http header" KRESET "\n");
 				write(connfd, "HTTP/1.0 400 Bad Request\n", 25);
 		}
 
 		if (strcmp(req_type, "GET") == 0 && strcmp(fileName, "/favicon") != 0)
 		{
-
-				//write(connfd, "HTTP/1.0 200 OK\nServer: isengard\nContent-Type: text/html\n\n", 48);
-			
 				int count = 0;
 				int fd = open(path, O_RDONLY);
 				if (fd == -1)
@@ -141,13 +138,12 @@ void respond_to_client(int connfd)
 				else
 				{
 					int count = 0;
-
 					int fd_temp = open(path, O_RDONLY);
 					while ((bytes_read = read(fd_temp, data, 512)) > 0) 
 						count += bytes_read;
 					close(fd_temp);
 				
-					
+					debug(KBLUE "forming http response" KRESET "\n");
 					// form http request	
 					// =================
 					char content_length[24];
@@ -160,22 +156,24 @@ void respond_to_client(int connfd)
 
 					if (strcmp(file_type, "gif") == 0)
 					{
+						debug(KBLUE "requesting gif" KRESET "\n");
 						sprintf(content_type, "Content-Type: image/gif\n\n");
 						type_length = 25;
 					}
 					else if (strcmp(file_type, "html") == 0)
 					{
+						debug(KBLUE "requesting html text" KRESET "\n");
 						sprintf(content_type, "Content-Type: text/html\n\n");
 						type_length = 25;
 					}
 					else if (strcmp(file_type, "jpg") == 0 )
 					{
+						debug(KBLUE "requesting jpg" KRESET "\n");
 						sprintf(content_type, "Content-Type: image/jpeg\n\n");
 						type_length = 26;
 					}
-
-
 	
+					debug(KBLUE "writing to webpage" KRESET "\n");
 					// write http request here
 					// =======================
 					write(connfd, "HTTP/1.0 200 OK\n", 16);
@@ -184,6 +182,7 @@ void respond_to_client(int connfd)
 
 					while ((bytes_read = read(fd, data, 512)) > 0 )
 					{
+						debug(KYEL "writing %d bytes" KRESET "\n", bytes_read);
 						write(connfd, data, bytes_read);
 					}
 					close(fd);
@@ -221,16 +220,14 @@ void connect_webserver()
 		}
 
 		debug( KGREEN "socket accepted" KRESET "\n");
+		debug(KGREEN "Forking client" KRESET "\n\n");
+
 		if (fork() == 0)
 		{
 			respond_to_client(connfd);
-			//close(connfd);
 			exit(0);
 		}
-
 	}
-
-	//close(connfd);
 }
 
 
@@ -251,20 +248,15 @@ int main(int argc, char** argv)
     }
   }
 
-
 	debug(KYEL "Setting up signal handlers" KRESET "\n\n\n");
 	signal(SIGINT, closeHandler);
 
-	//connection->sockfd = -1;
-	//connection->path = getenv("PWD");
+	debug(KYEL "Starting Web server" KRESET "\n");
 	start_webserver();
+	debug(KGREEN "Web server started" KRESET "\n\n");
 
 	connect_webserver();
 
 	return 0;
 }
-
-
-
-
 
