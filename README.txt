@@ -1,12 +1,8 @@
-name: Benjamin Tarman
+#compile#
 
+type make and go to localhost with the port number assigned jabroni.
 
-**compile**
-
-type make
-
-
-**features**
+#features#
 
 serves static GET requests. I allow
 
